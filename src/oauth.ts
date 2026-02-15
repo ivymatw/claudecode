@@ -45,9 +45,14 @@ function findAvailablePort(): Promise<number> {
   });
 }
 
+export interface OAuthFlowHandle {
+  authUrl: string;
+  waitForToken: () => Promise<TokenResponse>;
+}
+
 export async function startOAuthFlow(
   config: OAuthConfig = {}
-): Promise<TokenResponse> {
+): Promise<OAuthFlowHandle> {
   const authBaseUrl = config.authBaseUrl ?? DEFAULT_AUTH_BASE_URL;
   const tokenUrl = config.tokenUrl ?? DEFAULT_TOKEN_URL;
   const clientId = config.clientId ?? DEFAULT_CLIENT_ID;
@@ -71,17 +76,22 @@ export async function startOAuthFlow(
 
   const authUrl = `${authBaseUrl}/oauth/authorize?${authParams.toString()}`;
 
-  const authCode = await waitForCallback(port, state);
+  // Start the callback server immediately so it's ready before the browser opens
+  const callbackPromise = waitForCallback(port, state);
 
-  const tokenResponse = await exchangeCodeForToken({
-    code: authCode,
-    redirectUri,
-    clientId,
-    codeVerifier,
-    tokenUrl,
-  });
-
-  return tokenResponse;
+  return {
+    authUrl,
+    waitForToken: async () => {
+      const authCode = await callbackPromise;
+      return exchangeCodeForToken({
+        code: authCode,
+        redirectUri,
+        clientId,
+        codeVerifier,
+        tokenUrl,
+      });
+    },
+  };
 }
 
 function waitForCallback(port: number, expectedState: string): Promise<string> {
@@ -218,15 +228,3 @@ function buildHtmlResponse(title: string, message: string): string {
 </html>`;
 }
 
-export function getAuthorizationUrl(config: OAuthConfig = {}): string {
-  const authBaseUrl = config.authBaseUrl ?? DEFAULT_AUTH_BASE_URL;
-  const clientId = config.clientId ?? DEFAULT_CLIENT_ID;
-
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: clientId,
-    scope: "api",
-  });
-
-  return `${authBaseUrl}/oauth/authorize?${params.toString()}`;
-}

@@ -28,28 +28,25 @@ export async function setupToken(options: SetupTokenOptions): Promise<void> {
   );
 
   try {
-    // Dynamically import 'open' (ESM-only package)
     const open = (await import("open")).default;
 
-    const tokenPromise = startOAuthFlow({
+    // Start the OAuth flow — this spins up the callback server and
+    // returns the full authorization URL (with redirect_uri, state, PKCE).
+    const flow = await startOAuthFlow({
       authBaseUrl: options.authUrl,
       tokenUrl: options.tokenUrl,
       clientId: options.clientId,
     });
 
-    // Give the server a moment to start, then open browser
-    // The auth URL is logged by startOAuthFlow's internal redirect URI setup,
-    // but we also open the browser for the user
-    const authUrl = buildAuthUrl(options);
     console.log("If the browser doesn't open automatically, visit:");
-    console.log(`  ${authUrl}\n`);
+    console.log(`  ${flow.authUrl}\n`);
 
     // Open browser (best-effort, don't fail if it can't open)
-    open(authUrl).catch(() => {
+    open(flow.authUrl).catch(() => {
       // Silently ignore — URL is printed above
     });
 
-    const tokenResponse = await tokenPromise;
+    const tokenResponse = await flow.waitForToken();
 
     const credentials = {
       access_token: tokenResponse.access_token,
@@ -69,13 +66,4 @@ export async function setupToken(options: SetupTokenOptions): Promise<void> {
     console.error(`Authentication failed: ${message}`);
     process.exit(1);
   }
-}
-
-function buildAuthUrl(options: SetupTokenOptions): string {
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: options.clientId,
-    scope: "api",
-  });
-  return `${options.authUrl}/oauth/authorize?${params.toString()}`;
 }
