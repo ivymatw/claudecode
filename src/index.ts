@@ -12,18 +12,22 @@ program
 
 program
   .command("setup-token")
-  .description("Authenticate with Claude via OAuth and store credentials")
+  .description(
+    "Set up authentication credentials (API key or OAuth) and store them"
+  )
+  .option("--api-key <key>", "Anthropic API key (sk-ant-...)")
+  .option("--oauth", "Use OAuth browser flow instead of API key")
   .option(
     "--auth-url <url>",
-    "Custom authorization base URL",
+    "Custom authorization base URL (OAuth only)",
     "https://console.anthropic.com"
   )
   .option(
     "--token-url <url>",
-    "Custom token endpoint URL",
+    "Custom token endpoint URL (OAuth only)",
     "https://api.anthropic.com/v1/oauth/token"
   )
-  .option("--client-id <id>", "OAuth client ID", "claude-code-cli")
+  .option("--client-id <id>", "OAuth client ID (OAuth only)", "claude-code-cli")
   .option("--force", "Re-authenticate even if credentials already exist")
   .action(setupToken);
 
